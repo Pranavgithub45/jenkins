@@ -35,43 +35,72 @@ pipeline {
 
         stage('Stop Existing Application') {
             steps {
-                bat '''
-                @echo off
+                powershell '''
+                Write-Host "Checking application on port 9901..."
 
-                for /f "tokens=5" %%a in ('netstat -ano ^| findstr :9901') do (
-                    echo Stopping existing application (PID %%a)...
-                    taskkill /F /PID %%a
-                )
+                $process = Get-NetTCPConnection -LocalPort 9901 -ErrorAction SilentlyContinue |
+                           Select-Object -ExpandProperty OwningProcess -Unique
 
-                exit /b 0
+                if ($process) {
+                    Write-Host "Stopping process $process..."
+                    Stop-Process -Id $process -Force
+                    Start-Sleep -Seconds 3
+                }
+                else {
+                    Write-Host "No application running on port 9901."
+                }
                 '''
             }
         }
 
         stage('Deploy Application') {
             steps {
-                bat '''
-                @echo off
+                powershell '''
+                Write-Host "Starting Spring Boot Application..."
 
-                echo Starting Spring Boot Application...
+                if (Test-Path "app.log") {
+                    Remove-Item "app.log"
+                }
 
-                if exist app.log del app.log
+                $jar = Get-ChildItem "target\\*.jar" | Where-Object {
+                    $_.Name -notlike "*.original"
+                } | Select-Object -First 1
 
-                for %%f in (target\\*.jar) do (
-                    echo Starting %%f
+                if (-not $jar) {
+                    Write-Host "No JAR file found."
+                    exit 1
+                }
 
-                    start "" cmd /c "java -jar ""%%f"" > app.log 2>&1"
+                Write-Host "Starting $($jar.Name)"
 
-                    goto :started
-                )
+                Start-Process `
+                    -FilePath "java" `
+                    -ArgumentList "-jar `"$($jar.FullName)`"" `
+                    -RedirectStandardOutput "app.log" `
+                    -RedirectStandardError "app-error.log" `
+                    -WindowStyle Hidden
 
-                echo ERROR: No JAR file found.
-                exit /b 1
+                Start-Sleep -Seconds 15
 
-                :started
+                Write-Host "Checking port 9901..."
 
-                echo Waiting for application to start...
-                timeout /t 15 > nul
+                $port = Get-NetTCPConnection -LocalPort 9901 -ErrorAction SilentlyContinue
+
+                if (-not $port) {
+                    Write-Host "Application failed to start."
+
+                    if (Test-Path "app.log") {
+                        Get-Content app.log
+                    }
+
+                    if (Test-Path "app-error.log") {
+                        Get-Content app-error.log
+                    }
+
+                    exit 1
+                }
+
+                Write-Host "Application started successfully on port 9901."
                 '''
             }
         }
