@@ -49,14 +49,21 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 bat '''
-                @echo off
                 echo Starting Spring Boot Application...
 
-                start "SpringBootApp" cmd /c java -jar target\\*.jar
+                for %%f in (target\\*.jar) do (
+                    start "" /B java -jar "%%f" > app.log 2>&1
+                    goto :started
+                )
 
+                echo No jar file found
+                exit /b 1
+
+                :started
                 timeout /t 10 > nul
 
                 echo Application Started Successfully.
+                exit /b 0
                 '''
             }
         }
