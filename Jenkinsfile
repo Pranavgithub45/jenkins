@@ -2,6 +2,10 @@ pipeline {
 
     agent any
 
+    options {
+        skipDefaultCheckout()
+    }
+
     tools {
         jdk 'jdk-21'
         maven 'mvn-3.9'
@@ -27,9 +31,9 @@ pipeline {
                 @echo off
                 echo Checking for application running on port 9901...
 
-                for /f "tokens=5" %%a in ('netstat -ano ^| findstr :9901') do (
-                    echo Stopping existing application (PID: %%a)...
-                    taskkill /PID %%a /F
+                for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":9901"') do (
+                    echo Stopping PID %%P
+                    taskkill /F /PID %%P
                 )
 
                 exit /b 0
@@ -47,23 +51,24 @@ pipeline {
             steps {
                 bat '''
                 @echo off
+
                 echo Starting Spring Boot Application...
 
-                :: Prevent Jenkins from terminating the application
+                :: Prevent Jenkins from killing the process
                 set JENKINS_NODE_COOKIE=dontKillMe
 
-                :: Start the Spring Boot application
-                for %%f in (target\\*.jar) do (
-                    echo Launching %%f...
-                    start "" /B java -jar "%%f" > app.log 2>&1
-                    goto :started
+                :: Find the generated JAR and start it
+                for %%F in (target\\*.jar) do (
+                    echo Launching %%F
+                    start "" /B java -jar "%%F" > app.log 2>&1
+                    goto started
                 )
 
-                echo ERROR: No JAR file found in target folder.
+                echo ERROR: No JAR found in target folder.
                 exit /b 1
 
                 :started
-                echo Waiting for application startup...
+                echo Waiting for application to start...
                 ping 127.0.0.1 -n 11 > nul
 
                 echo Application Started Successfully.
