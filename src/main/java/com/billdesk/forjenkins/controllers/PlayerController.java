@@ -26,7 +26,7 @@ public class PlayerController {
 
     @GetMapping("/pranav")
     public String hey(){
-        return "Hello pranav!";
+        return "Hello pranav patil!";
     }
 
     // READ ALL
