@@ -46,27 +46,27 @@ pipeline {
             }
         }
 
+
         stage('Deploy Application') {
-            steps {
-                bat '''
-                echo Starting Spring Boot Application...
+    steps {
+        bat '''
+        @echo off
+        echo Starting Spring Boot Application...
 
-                for %%f in (target\\*.jar) do (
-                    start "" /B java -jar "%%f" > app.log 2>&1
-                    goto :started
-                )
+        :: Prevent Jenkins from terminating the application
+        set JENKINS_NODE_COOKIE=dontKillMe
 
-                echo No jar file found
-                exit /b 1
+        :: Start the Spring Boot application in the background
+        start "" javaw -jar target\\LearningGIT-0.0.1-SNAPSHOT.jar > app.log 2>&1
 
-                :started
-                timeout /t 10 > nul
+        :: Wait for application startup
+        ping 127.0.0.1 -n 11 > nul
 
-                echo Application Started Successfully.
-                exit /b 0
-                '''
-            }
-        }
+        echo Application Started Successfully.
+        '''
+    }
+}
+    }
 
     }
 
