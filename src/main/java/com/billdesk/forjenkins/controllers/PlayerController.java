@@ -24,6 +24,11 @@ public class PlayerController {
         return new ResponseEntity<>(savedPlayer, HttpStatus.CREATED);
     }
 
+    @GetMapping("/pranav")
+    public String hey(){
+        return "Hello pranav!";
+    }
+
     // READ ALL
     @GetMapping
     public ResponseEntity<List<player>> getAllPlayers() {
