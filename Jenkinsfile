@@ -21,28 +21,25 @@ pipeline {
             }
         }
 
-        stage('Compile') {
-            steps {
-                bat 'mvn clean compile'
-            }
-        }
-
-        stage('Package Application') {
-            steps {
-                bat 'mvn package -DskipTests'
-            }
-        }
-
         stage('Stop Existing Application') {
             steps {
                 bat '''
                 @echo off
+                echo Checking for application running on port 9901...
+
                 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :9901') do (
-                    echo Stopping existing application...
+                    echo Stopping existing application (PID: %%a)...
                     taskkill /PID %%a /F
                 )
+
                 exit /b 0
                 '''
+            }
+        }
+
+        stage('Build Application') {
+            steps {
+                bat 'mvn clean package -DskipTests'
             }
         }
 
@@ -55,13 +52,14 @@ pipeline {
                 :: Prevent Jenkins from terminating the application
                 set JENKINS_NODE_COOKIE=dontKillMe
 
-                :: Start the Spring Boot application in the background
+                :: Start the Spring Boot application
                 for %%f in (target\\*.jar) do (
+                    echo Launching %%f...
                     start "" /B java -jar "%%f" > app.log 2>&1
                     goto :started
                 )
 
-                echo No JAR file found.
+                echo ERROR: No JAR file found in target folder.
                 exit /b 1
 
                 :started
